@@ -16,7 +16,7 @@ development setup. Supports both direct and role separation usage.
 | `--profile` | `-p`   | AWS Profile name             | X | default       
 | `--region`  | `-r`    | AWS Region                   | | us-east-1     
 | `--role`     | `-R`    | Role to assume               | | " "
-| `--ext` | `-e` | File extension to encrypt    | | "encrpyted"
+| `--ext` | `-e` | File extension to encrypt    | | "encrypted"
 
 Default Behaviors:
 
