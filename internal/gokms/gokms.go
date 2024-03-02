@@ -30,6 +30,12 @@ func New(ctx context.Context, profile, region, role string) *KMS {
 		log.Fatal(" Error loading config: ", err)
 	}
 
+	// If no role is specified, use the default credentials.
+	if role == "" {
+		client := kms.NewFromConfig(cfg)
+		return &KMS{client: client, cfg: cfg, ctx: ctx}
+	}
+
 	creds, err := assumeRole(ctx, cfg, role)
 	if err != nil {
 		log.Fatal(" Error assuming role: ", err)
@@ -39,11 +45,12 @@ func New(ctx context.Context, profile, region, role string) *KMS {
 		Credentials: credentials.NewStaticCredentialsProvider(*creds.AccessKeyId, *creds.SecretAccessKey, *creds.SessionToken),
 		Region:      region,
 	})
+
 	return &KMS{client: client, cfg: cfg, ctx: ctx}
 }
 
 // Encrypt encrypts the plaintext.
-func (k *KMS) Encrypt(path, output, key string) error {
+func (k *KMS) Encrypt(path, output, key, ext string) error {
 	data, err := readFile(path)
 	if err != nil {
 		return err
@@ -54,10 +61,39 @@ func (k *KMS) Encrypt(path, output, key string) error {
 		Plaintext: data,
 	})
 
+	// if output is not specified, write the encrypted data to the same path as the plaintext.
+	if output != "" {
+		err = writeFile(output, ext, ciphertext)
+	} else {
+		err = writeFile(path, ext, ciphertext)
+	}
+
 	if err != nil {
 		return err
 	}
-	encryptedPathOutput := output + ".enc"
+
+	return nil
+}
+
+// readFile reads the specified file. If the file does not exist, it returns an error.
+func readFile(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+// writeFile writes the ciphertext to the specified file. If the file already exists, it is renamed and a new file is created.
+func writeFile(path, ext string, ciphertext *kms.EncryptOutput) error {
+
+	encryptedPathOutput := path + "." + ext
 	if _, err := os.Stat(encryptedPathOutput); !os.IsNotExist(err) {
 		// File already exists, so don't overwrite it.
 		// Rename the existing file so we can write the new encrypted file.
@@ -71,20 +107,6 @@ func (k *KMS) Encrypt(path, output, key string) error {
 		return err
 	}
 	return nil
-}
-
-func readFile(path string) ([]byte, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	data, err := io.ReadAll(f)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
 }
 
 // loadConfig loads the configuration.

@@ -30,9 +30,10 @@ to quickly create a Cobra application.`,
 		path, _ := cmd.Flags().GetString("path")
 		output, _ := cmd.Flags().GetString("output")
 		key, _ := cmd.Flags().GetString("key")
+		ext, _ := cmd.Flags().GetString("ext")
 		// call decrypt
 		kms := gokms.New(context.Background(), profile, region, role)
-		err := kms.Encrypt(path, output, key)
+		err := kms.Encrypt(path, output, key, ext)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -48,8 +49,7 @@ func init() {
 	decryptCmd.Flags().StringP("path", "P", "", "Path to file to encrypt")
 	decryptCmd.Flags().StringP("output", "o", "", "Path to file to encrypt")
 	decryptCmd.Flags().StringP("key", "k", "", "KMS key alias")
+	decryptCmd.Flags().StringP("ext", "e", "encrypted", "Extension of encrypted file")
 	decryptCmd.MarkFlagRequired("path")
-	decryptCmd.MarkFlagRequired("role")
 	decryptCmd.MarkFlagRequired("key")
-	decryptCmd.MarkFlagRequired("output")
 }
