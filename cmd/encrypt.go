@@ -6,14 +6,13 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/tnaucoin/gocrypt/internal/gokms"
-	"log"
-
 	"github.com/spf13/cobra"
+	"github.com/tnaucoin/gocrypt/internal/gokms"
+	"os"
 )
 
-// decryptCmd represents the decrypt command
-var decryptCmd = &cobra.Command{
+// encryptCmd represents the decrypt command
+var encryptCmd = &cobra.Command{
 	Use:   "encrypt",
 	Short: "",
 	Long: `A longer description that spans multiple lines and likely contains examples
@@ -35,21 +34,22 @@ to quickly create a Cobra application.`,
 		kms := gokms.New(context.Background(), profile, region, role)
 		err := kms.Encrypt(path, output, key, ext)
 		if err != nil {
-			log.Fatal(err)
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
 		}
 		fmt.Printf("Encrypted file %s to %s\n", path, output)
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(decryptCmd)
-	decryptCmd.Flags().StringP("profile", "p", "default", "AWS profile")
-	decryptCmd.Flags().StringP("region", "r", "us-east-1", "AWS region")
-	decryptCmd.Flags().StringP("role", "R", "", "AWS role")
-	decryptCmd.Flags().StringP("path", "P", "", "Path to file to encrypt")
-	decryptCmd.Flags().StringP("output", "o", "", "Path to file to encrypt")
-	decryptCmd.Flags().StringP("key", "k", "", "KMS key alias")
-	decryptCmd.Flags().StringP("ext", "e", "encrypted", "Extension of encrypted file")
-	decryptCmd.MarkFlagRequired("path")
-	decryptCmd.MarkFlagRequired("key")
+	rootCmd.AddCommand(encryptCmd)
+	encryptCmd.Flags().StringP("profile", "p", "default", "AWS profile")
+	encryptCmd.Flags().StringP("region", "r", "us-east-1", "AWS region")
+	encryptCmd.Flags().StringP("role", "R", "", "AWS role")
+	encryptCmd.Flags().StringP("path", "P", "", "Path to file to encrypt")
+	encryptCmd.Flags().StringP("output", "o", "", "Path to file to encrypt")
+	encryptCmd.Flags().StringP("key", "k", "", "KMS key alias")
+	encryptCmd.Flags().StringP("ext", "e", "encrypted", "Extension of encrypted file")
+	encryptCmd.MarkFlagRequired("path")
+	encryptCmd.MarkFlagRequired("key")
 }

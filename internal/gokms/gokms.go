@@ -2,6 +2,7 @@ package gokms
 
 import (
 	"context"
+	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -9,8 +10,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/aws-sdk-go-v2/service/sts/types"
 	"io"
-	"log"
 	"os"
+	"strings"
 )
 
 // KMS is a wrapper around the AWS KMS client.
@@ -27,7 +28,8 @@ func New(ctx context.Context, profile, region, role string) *KMS {
 	}
 	cfg, err := loadConfig(region, profile)
 	if err != nil {
-		log.Fatal(" Error loading config: ", err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
 	}
 
 	// If no role is specified, use the default credentials.
@@ -38,7 +40,8 @@ func New(ctx context.Context, profile, region, role string) *KMS {
 
 	creds, err := assumeRole(ctx, cfg, role)
 	if err != nil {
-		log.Fatal(" Error assuming role: ", err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
 	}
 
 	client := kms.New(kms.Options{
@@ -63,15 +66,38 @@ func (k *KMS) Encrypt(path, output, key, ext string) error {
 
 	// if output is not specified, write the encrypted data to the same path as the plaintext.
 	if output != "" {
-		err = writeFile(output, ext, ciphertext)
+		err = writeFile(output, ext, ciphertext.CiphertextBlob, true)
 	} else {
-		err = writeFile(path, ext, ciphertext)
+		err = writeFile(path, ext, ciphertext.CiphertextBlob, true)
 	}
 
 	if err != nil {
 		return err
 	}
 
+	return nil
+}
+
+// Decrypt decrypts the ciphertext.
+func (k *KMS) Decrypt(path, output, key, ext string) error {
+	data, err := readFile(path)
+	if err != nil {
+		return err
+	}
+	ciphertext, err := k.client.Decrypt(k.ctx, &kms.DecryptInput{
+		CiphertextBlob: data,
+	})
+	if err != nil {
+		return err
+	}
+	if output != "" {
+		err = writeFile(output, ext, ciphertext.Plaintext, false)
+	} else {
+		err = writeFile(path, ext, ciphertext.Plaintext, false)
+	}
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -91,19 +117,25 @@ func readFile(path string) ([]byte, error) {
 }
 
 // writeFile writes the ciphertext to the specified file. If the file already exists, it is renamed and a new file is created.
-func writeFile(path, ext string, ciphertext *kms.EncryptOutput) error {
+// If isEncrypted is true, the file extension is.enc. Otherwise, the file extension is removed.
+func writeFile(path, ext string, ciphertext []byte, isEncrypted bool) error {
+	var writeFilePath string
+	if isEncrypted {
+		writeFilePath = path + "." + ext
+	} else {
+		writeFilePath = strings.TrimSuffix(path, "."+ext)
+	}
 
-	encryptedPathOutput := path + "." + ext
-	if _, err := os.Stat(encryptedPathOutput); !os.IsNotExist(err) {
+	if _, err := os.Stat(writeFilePath); !os.IsNotExist(err) {
 		// File already exists, so don't overwrite it.
-		// Rename the existing file so we can write the new encrypted file.
-		oldPath := encryptedPathOutput + ".old"
-		if err := os.Rename(encryptedPathOutput, oldPath); err != nil {
+		// Rename the existing file so we can write the new file.
+		oldPath := writeFilePath + ".old"
+		if err := os.Rename(writeFilePath, oldPath); err != nil {
 			return err
 		}
 	}
-	// Write the encrypted file.
-	if err := os.WriteFile(encryptedPathOutput, ciphertext.CiphertextBlob, 0644); err != nil {
+
+	if err := os.WriteFile(writeFilePath, ciphertext, 0644); err != nil {
 		return err
 	}
 	return nil
