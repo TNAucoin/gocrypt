@@ -27,6 +27,7 @@ Default Behaviors:
 | `--region`  | `-r`    | AWS Region                   | | us-east-1     
 | `--role`     | `-R`    | Role to assume               | | " "
 | `--ext` | `-e` | File extension to encrypt    | | "encrypted"
+
 Example:
 ```bash
 gocrypt encrypt -k alias/gocrypt -o ./output/path/newFilename.something -P input/path/filename.something -p awsProfileName -r aws-region -R arn:aws:iam::RoleToAssume -e encoded
